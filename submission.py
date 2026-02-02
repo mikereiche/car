@@ -9,7 +9,7 @@ import math
 import random
 import util
 from engine.const import Const
-from util import Belief
+from util import Belief, xToCol, yToRow, colToX, rowToY
 
 
 # Class: ExactInference
@@ -52,7 +52,12 @@ class ExactInference:
 
     def observe(self, agentX: int, agentY: int, observedDist: float) -> None:
         # BEGIN_YOUR_CODE (our solution is 7 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        for c in range(0, self.belief.numCols):
+            for r in range(0, self.belief.numRows):
+                d = math.sqrt((agentX - util.colToX(c)) ** 2 + (agentY - rowToY(r)) ** 2)
+                p = util.pdf(d, Const.SONAR_STD, observedDist)
+                self.belief.setProb(r, c, self.belief.getProb(r, c) * p)
+        self.belief.normalize()
         # END_YOUR_CODE
 
     ##################################################################################
@@ -77,10 +82,21 @@ class ExactInference:
     #    small floating point numbers can lead to sum being close to but not equal to 1)
     ##################################################################################
     def elapseTime(self) -> None:
-        if self.skipElapse: ### ONLY FOR THE GRADER TO USE IN Problem 1
+        if self.skipElapse:  ### ONLY FOR THE GRADER TO USE IN Problem 1
             return
         # BEGIN_YOUR_CODE (our solution is 7 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        newBelief = util.Belief(self.belief.numRows, self.belief.numCols, 0)
+        for r in range(0, self.belief.numRows):
+            for c in range(0, self.belief.numCols):
+                p = 0
+                for oldr in r - 1, r, r + 1:
+                    for oldc in c - 1, c, c + 1:
+                        if 0 <= oldr < self.belief.numRows and 0 <= oldc < self.belief.numCols:
+                            if ((oldr, oldc), (r, c)) in self.transProb:
+                                p += self.belief.getProb(oldr, oldc) * self.transProb[(oldr, oldc), (r, c)]
+                newBelief.setProb(r, c, p)
+        self.belief = newBelief
+        self.belief.normalize()
         # END_YOUR_CODE
 
     # Function: Get Belief
@@ -130,7 +146,15 @@ class ExactInferenceWithSensorDeception(ExactInference):
 
     def observe(self, agentX: int, agentY: int, observedDist: float) -> None:
         # BEGIN_YOUR_CODE (our solution is 5 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        # Apply the adjustment to observed distance based on the transformation
+        # D_t_' = 1/(1+skewness**2) * D_t + sqrt(2 * (1/(1+skewness**2))) then copy
+        observedDist = 1 / (1 + self.skewness ** 2) * observedDist + math.sqrt(2 * (1 / (1 + self.skewness ** 2)))
+        for c in range(0, self.belief.numCols):
+            for r in range(0, self.belief.numRows):
+                d = math.sqrt((agentX - util.colToX(c)) ** 2 + (agentY - rowToY(r)) ** 2)
+                p = util.pdf(d, Const.SONAR_STD, observedDist)
+                self.belief.setProb(r, c, self.belief.getProb(r, c) * p)
+        self.belief.normalize()
         # END_YOUR_CODE
 
     def elapseTime(self) -> None:
